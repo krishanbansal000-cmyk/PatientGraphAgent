@@ -10,9 +10,9 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-from agent_v2.utils.cache import get_cache, DEFAULT_TTL
-from agent_v2.utils.rate_limiter import get_rate_limiter
-from agent_v2.utils.retry import retry, RetryOptions
+from assistant.utils.cache import get_cache, DEFAULT_TTL
+from assistant.utils.rate_limiter import get_rate_limiter
+from assistant.utils.retry import retry, RetryOptions
 
 
 class DailyMedClient:

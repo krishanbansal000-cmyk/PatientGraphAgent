@@ -2,7 +2,7 @@
 
 import unittest
 
-from agent.terminology_enrichment import (
+from clinical_core.terminology_enrichment import (
     TerminologyConfig,
     TerminologyEnricher,
     collect_fhir_codings,

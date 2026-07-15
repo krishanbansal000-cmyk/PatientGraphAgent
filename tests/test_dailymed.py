@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from agent_v2.dailymed import DailyMedClient
+from assistant.dailymed import DailyMedClient
 
 
 class DailyMedSelectionTests(unittest.TestCase):

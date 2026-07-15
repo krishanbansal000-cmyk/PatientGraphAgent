@@ -11,13 +11,13 @@ from typing import Any, List, Sequence
 
 from pydantic import BaseModel, Field
 
-from agent.clinical_graph_schema import (
+from clinical_core.clinical_graph_schema import (
     CLINICAL_EXTRACTION_INSTRUCTIONS,
     EDGE_TYPE_MAP,
     EDGE_TYPES,
     ENTITY_TYPES,
 )
-from agent.patient_journey import JourneyEpisode, PatientJourney
+from clinical_core.patient_journey import JourneyEpisode, PatientJourney
 
 
 PATIENT_JOURNEY_SAGA = "patient_clinical_journey"

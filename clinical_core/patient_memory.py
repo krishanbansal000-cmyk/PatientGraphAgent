@@ -11,8 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
-from agent.fhir_provenance import FHIRProvenanceBridge, get_fhir_provenance_bridge
-from agent.patient_journey import build_patient_journey, patient_group_id
+from clinical_core.fhir_provenance import FHIRProvenanceBridge, get_fhir_provenance_bridge
+from clinical_core.patient_journey import build_patient_journey, patient_group_id
 
 
 log = logging.getLogger(__name__)
@@ -154,8 +154,8 @@ class PatientMemoryService:
     ) -> Dict[str, Any]:
         # Imports are intentionally lazy: the app still works without the
         # optional graphiti-core dependency or its model configuration.
-        from agent.graphiti_client import create_graphiti_client, graphiti_is_configured
-        from agent.graphiti_ingestion import (
+        from clinical_core.graphiti_client import create_graphiti_client, graphiti_is_configured
+        from clinical_core.graphiti_ingestion import (
             PATIENT_JOURNEY_SAGA,
             build_memory_episodes,
             ingest_memory_episodes,
@@ -286,7 +286,7 @@ class PatientMemoryService:
         fact_limit: int = 8,
     ) -> Dict[str, Any]:
         """Return semantic Graphiti facts grounded in canonical FHIR sources."""
-        from agent.graphiti_client import graphiti_is_configured
+        from clinical_core.graphiti_client import graphiti_is_configured
 
         bridge = get_fhir_provenance_bridge()
         result: Dict[str, Any] = {
@@ -329,7 +329,7 @@ class PatientMemoryService:
         bridge: Optional[FHIRProvenanceBridge],
         limit: int,
     ) -> tuple[List[Dict[str, Any]], int]:
-        from agent.graphiti_client import create_graphiti_client, graphiti_is_configured
+        from clinical_core.graphiti_client import create_graphiti_client, graphiti_is_configured
 
         if not graphiti_is_configured() or bridge is None:
             return [], 0

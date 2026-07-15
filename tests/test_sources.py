@@ -1,6 +1,6 @@
 import unittest
 
-from agent_v2.sources import dailymed_source, fhir_source
+from assistant.sources import dailymed_source, fhir_source
 
 
 class SourceMetadataTests(unittest.TestCase):

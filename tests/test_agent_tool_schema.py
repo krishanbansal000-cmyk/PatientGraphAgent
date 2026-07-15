@@ -4,8 +4,8 @@ import unittest
 
 from google.adk.tools.function_tool import FunctionTool
 
-from agent.context_search import PatientQueryPlan, build_search_plan
-from agent.tools import search_patient_context
+from clinical_core.context_search import PatientQueryPlan, build_search_plan
+from clinical_core.tools import search_patient_context
 
 
 class PatientContextToolSchemaTests(unittest.TestCase):

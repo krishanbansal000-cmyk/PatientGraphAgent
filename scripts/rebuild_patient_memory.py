@@ -21,9 +21,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 
-from agent.patient_memory import get_patient_memory_service
-from agent.patient_journey import patient_group_id
-from agent.tools import load_patient_resources
+from clinical_core.patient_memory import get_patient_memory_service
+from clinical_core.patient_journey import patient_group_id
+from clinical_core.tools import load_patient_resources
 
 
 def reset_patient_group(patient_id: str) -> dict[str, int]:

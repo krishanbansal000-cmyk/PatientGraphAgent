@@ -1,4 +1,4 @@
-from agent.patient_journey import build_patient_journey
+from clinical_core.patient_journey import build_patient_journey
 
 
 PATIENT_ID = "john"

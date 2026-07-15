@@ -12,18 +12,18 @@ from google.adk.tools import ToolContext
 from google.auth import default as google_auth_default
 from google.auth.transport.requests import AuthorizedSession
 
-from agent.context_search import (
+from clinical_core.context_search import (
     PATIENT_RESOURCE_TYPES,
     PatientQueryPlan,
     build_patient_context,
     build_search_plan,
 )
-from agent.patient_memory import get_patient_memory_service
-from agent.terminology_enrichment import (
+from clinical_core.patient_memory import get_patient_memory_service
+from clinical_core.terminology_enrichment import (
     get_terminology_enricher,
     terminology_sources,
 )
-from agent_v2.sources import deduplicate_sources, fhir_source
+from assistant.sources import deduplicate_sources, fhir_source
 
 
 log = logging.getLogger(__name__)

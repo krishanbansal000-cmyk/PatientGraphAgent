@@ -8,8 +8,8 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", os.environ.get("GOOGLE_CLOUD_LOCA
 
 from google.adk.agents import Agent
 
-from agent.tools import search_patient_context
-from agent_v2.tools import (
+from clinical_core.tools import search_patient_context
+from assistant.tools import (
     check_interaction,
     get_drug_info,
     read_fhir,
@@ -17,7 +17,7 @@ from agent_v2.tools import (
     resolve_medication,
     search_fhir,
 )
-from agent_v2.specialist_agents import doctor_agent, insurance_agent, pharmacy_agent
+from assistant.specialist_agents import doctor_agent, insurance_agent, pharmacy_agent
 
 
 root_agent = Agent(

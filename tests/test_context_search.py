@@ -2,7 +2,7 @@
 
 import unittest
 
-from agent.context_search import (
+from clinical_core.context_search import (
     PatientQueryPlan,
     build_patient_context,
     build_search_plan,

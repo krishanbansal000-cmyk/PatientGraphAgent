@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from agent_v2.terminology import LoincClient
+from assistant.terminology import LoincClient
 
 
 class LoincClientTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class LoincClientTests(unittest.TestCase):
         ]
         return response
 
-    @patch("agent_v2.terminology.requests.get")
+    @patch("assistant.terminology.requests.get")
     def test_exact_lookup_parses_clinical_tables_display_rows(self, get):
         get.return_value = self._response()
 
@@ -44,7 +44,7 @@ class LoincClientTests(unittest.TestCase):
         self.assertEqual(result["component"], "Hemoglobin A1c/Hemoglobin.total")
         self.assertEqual(result["shortname"], "HbA1c MFr Bld")
 
-    @patch("agent_v2.terminology.requests.get")
+    @patch("assistant.terminology.requests.get")
     def test_text_search_uses_returned_code_when_extra_fields_are_null(self, get):
         get.return_value = self._response()
 

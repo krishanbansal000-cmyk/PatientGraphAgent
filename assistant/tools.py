@@ -15,11 +15,11 @@ from typing import Any, Dict, Optional
 
 from google.adk.tools import ToolContext
 
-from agent_v2.fhir_client import FhirClient
-from agent_v2.terminology import RxNormClient, LoincClient
-from agent_v2.ddinter import DDInterDatabase
-from agent_v2.dailymed import DailyMedClient
-from agent_v2.sources import (
+from assistant.fhir_client import FhirClient
+from assistant.terminology import RxNormClient, LoincClient
+from assistant.ddinter import DDInterDatabase
+from assistant.dailymed import DailyMedClient
+from assistant.sources import (
     dailymed_source,
     ddinter_source,
     deduplicate_sources,

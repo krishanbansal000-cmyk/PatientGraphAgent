@@ -23,10 +23,10 @@ from google.auth import default as google_auth_default
 from google.auth.transport.requests import AuthorizedSession
 from google.genai import types
 
-from agent_v2.agent import root_agent
-from agent.patient_memory import get_patient_memory_service
-from agent.patient_journey import build_patient_journey
-from agent.tools import load_patient_resources
+from assistant.agent import root_agent
+from clinical_core.patient_memory import get_patient_memory_service
+from clinical_core.patient_journey import build_patient_journey
+from clinical_core.tools import load_patient_resources
 from api.citations import collect_event_citations
 from api.prototype_auth import (
     COOKIE_NAME,

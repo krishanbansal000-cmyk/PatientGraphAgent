@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional
 from google.auth import default as google_auth_default
 from google.auth.transport.requests import AuthorizedSession
 
-from agent_v2.utils.rate_limiter import get_rate_limiter
-from agent_v2.utils.retry import retry, RetryOptions
+from assistant.utils.rate_limiter import get_rate_limiter
+from assistant.utils.retry import retry, RetryOptions
 
 
 _PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "avinia-app")

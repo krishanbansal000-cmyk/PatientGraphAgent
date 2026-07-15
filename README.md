@@ -96,7 +96,7 @@ Semantic facts are returned only when their Graphiti episode resolves to a
 patient-owned `FHIRSource` link.
 
 The logical names carried by `RELATES_TO` are restricted to the clinical
-schema in `agent/clinical_graph_schema.py`. Exact lab values and calculated
+schema in `clinical_core/clinical_graph_schema.py`. Exact lab values and calculated
 trends are read from FHIR at query time rather than stored as semantic facts.
 
 Patient requests read the existing semantic memory but never rebuild it in a

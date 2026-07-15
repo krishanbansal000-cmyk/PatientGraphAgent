@@ -1,6 +1,6 @@
 # DDInter Data
 
-CSV files placed in this directory are used by `agent_v2/ddinter.py` for the
+CSV files placed in this directory are used by `assistant/ddinter.py` for the
 prototype drug-interaction lookup. They are intentionally excluded from this
 public repository and must be acquired and provisioned separately.
 

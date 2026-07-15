@@ -5,8 +5,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from agent.patient_memory import PatientMemoryService
-from agent.patient_journey import patient_group_id
+from clinical_core.patient_memory import PatientMemoryService
+from clinical_core.patient_journey import patient_group_id
 
 
 class _ImmediateMemoryService(PatientMemoryService):
@@ -85,7 +85,7 @@ class PatientMemoryTests(unittest.TestCase):
         with patch.dict(
             "sys.modules",
             {
-                "agent.graphiti_client": SimpleNamespace(
+                "clinical_core.graphiti_client": SimpleNamespace(
                     graphiti_is_configured=lambda: True,
                     create_graphiti_client=lambda: client,
                 )
@@ -109,10 +109,10 @@ class PatientMemoryTests(unittest.TestCase):
         client = _FakeGraphitiClient()
 
         async def retrieve_inside_loop():
-            with patch("agent.patient_memory.get_fhir_provenance_bridge", return_value=bridge), patch.dict(
+            with patch("clinical_core.patient_memory.get_fhir_provenance_bridge", return_value=bridge), patch.dict(
                 "sys.modules",
                 {
-                    "agent.graphiti_client": SimpleNamespace(
+                    "clinical_core.graphiti_client": SimpleNamespace(
                         graphiti_is_configured=lambda: True,
                         create_graphiti_client=lambda: client,
                     )

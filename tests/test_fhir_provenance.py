@@ -2,7 +2,7 @@
 
 import unittest
 
-from agent.fhir_provenance import FHIRProvenanceBridge, ProvenanceConfig
+from clinical_core.fhir_provenance import FHIRProvenanceBridge, ProvenanceConfig
 
 
 class _Result:

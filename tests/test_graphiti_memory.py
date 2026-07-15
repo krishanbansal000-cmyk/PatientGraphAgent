@@ -8,10 +8,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from agent.clinical_graph_schema import EDGE_TYPE_MAP, EDGE_TYPES, ENTITY_TYPES
-from agent.graphiti_client import GraphitiSettings, create_graphiti_client
-from agent.graphiti_ingestion import build_memory_episodes, ingest_memory_episodes
-from agent.patient_journey import build_patient_journey
+from clinical_core.clinical_graph_schema import EDGE_TYPE_MAP, EDGE_TYPES, ENTITY_TYPES
+from clinical_core.graphiti_client import GraphitiSettings, create_graphiti_client
+from clinical_core.graphiti_ingestion import build_memory_episodes, ingest_memory_episodes
+from clinical_core.patient_journey import build_patient_journey
 
 
 def _patient() -> dict:

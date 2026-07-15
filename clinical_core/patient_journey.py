@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, Field
 
-from agent.context_search import ClinicalEvent, resources_to_events
+from clinical_core.context_search import ClinicalEvent, resources_to_events
 
 
 MEDICATION_TYPES = {"MedicationDispense", "MedicationRequest", "MedicationStatement"}
