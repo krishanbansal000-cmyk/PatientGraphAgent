@@ -1,0 +1,1 @@
+"""MyHealth FastAPI application package."""

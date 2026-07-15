@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>MyHealth</title>
+  <link rel="stylesheet" href="/ui/styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+  <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script defer src="/ui/app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+</head>
+<body x-data="myHealthApp()" x-init="init()" @keydown.escape.window="closeActiveDrawer()">
+  <div class="app-loading" x-show="!authChecked" x-cloak aria-live="polite">
+    <div class="loader-mark"><i data-lucide="heart-pulse"></i></div>
+  </div>
+
+  <section class="login-overlay" x-show="authChecked && !authenticated" x-cloak>
+    <form class="login-card" @submit.prevent="login()">
+      <div class="login-mark"><i data-lucide="heart-pulse"></i></div>
+      <p class="eyebrow">MyHealth</p>
+      <h1>Internal prototype</h1>
+      <p class="login-copy">Enter the shared team password to continue.</p>
+      <label for="password-input">Password</label>
+      <input id="password-input" type="password" autocomplete="current-password" maxlength="256"
+        x-model="password" :disabled="loginBusy" @input="loginError = ''" required>
+      <p class="form-error" x-show="loginError" x-text="loginError" x-cloak role="alert"></p>
+      <button class="primary-button login-button" type="submit" :disabled="loginBusy">
+        <span x-text="loginBusy ? 'Signing in...' : 'Continue'"></span>
+        <i data-lucide="arrow-right"></i>
+      </button>
+    </form>
+  </section>
+
+  <div class="app-shell" x-show="authenticated" x-cloak>
+    <aside class="navigation" aria-label="Primary navigation">
+      <div class="brand-mark" title="MyHealth"><i data-lucide="heart-pulse"></i></div>
+      <nav class="nav-items">
+        <button class="nav-button" :class="{ 'is-active': view === 'overview' }" @click="setView('overview')" title="Patient overview" aria-label="Patient overview">
+          <i data-lucide="layout-dashboard"></i>
+        </button>
+        <button class="nav-button" :class="{ 'is-active': view === 'journey' }" @click="setView('journey')" title="Patient journey" aria-label="Patient journey">
+          <i data-lucide="route"></i>
+        </button>
+        <button class="nav-button" :class="{ 'is-active': view === 'chat' }" @click="setView('chat')" title="Ask MyHealth" aria-label="Ask MyHealth">
+          <i data-lucide="messages-square"></i>
+        </button>
+      </nav>
+      <div class="nav-footer">
+        <button class="avatar-button" title="Prototype user" aria-label="Prototype user">JD</button>
+        <button class="nav-button" @click="logout()" title="Sign out" aria-label="Sign out">
+          <i data-lucide="log-out"></i>
+        </button>
+      </div>
+    </aside>
+
+    <header class="topbar">
+      <div>
+        <p class="eyebrow" x-text="viewEyebrow"></p>
+        <h1 x-text="viewTitle"></h1>
+      </div>
+      <div class="topbar-meta">
+        <div class="record-status" title="Connected to the FHIR store">
+          <span class="status-dot"></span>
+          <span>FHIR connected</span>
+        </div>
+        <button class="patient-switcher" @click="setView('overview')" title="View patient overview">
+          <span class="patient-avatar small">JD</span>
+          <span class="topbar-patient">
+            <strong x-text="patientName"></strong>
+            <small x-text="patientData.patient_id || 'Loading record'"></small>
+          </span>
+          <i data-lucide="chevron-down"></i>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace" :class="{ 'workspace-chat': view === 'chat' }">
+      <section class="overview-page" x-show="view === 'overview'" x-cloak>
+        <div class="patient-strip">
+          <div class="patient-identity">
+            <div class="patient-avatar">JD</div>
+            <div>
+              <h2 x-text="patientName"></h2>
+              <p>
+                <span x-text="patientAge ? patientAge + ' years' : 'Age unavailable'"></span>
+                <span class="separator">/</span>
+                <span x-text="titleCase(patientData.patient?.gender) || 'Gender unavailable'"></span>
+                <span class="separator">/</span>
+                <span x-text="patientData.patient?.birthDate ? 'DOB ' + formatDate(patientData.patient.birthDate) : 'DOB unavailable'"></span>
+              </p>
+            </div>
+          </div>
+          <div class="patient-actions">
+            <span class="record-id">ID <strong x-text="patientData.patient_id || '...'"></strong></span>
+            <button class="icon-button" @click="loadPatientDetails()" :disabled="patientLoading" title="Refresh patient record" aria-label="Refresh patient record">
+              <span :class="{ 'spin': patientLoading }"><i data-lucide="refresh-cw"></i></span>
+            </button>
+          </div>
+        </div>
+
+        <p class="data-error" x-show="patientError" x-text="patientError" x-cloak></p>
+
+        <div class="metric-grid" aria-label="Patient record counts">
+          <article class="metric-card">
+            <span class="metric-icon problems"><i data-lucide="stethoscope"></i></span>
+            <span class="metric-label">Conditions</span>
+            <strong x-text="patientData.conditions.length"></strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon medications"><i data-lucide="pill"></i></span>
+            <span class="metric-label">Medications</span>
+            <strong x-text="patientData.medications.length"></strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon results"><i data-lucide="flask-conical"></i></span>
+            <span class="metric-label">Recent results</span>
+            <strong x-text="patientData.recent_observations.length"></strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon visits"><i data-lucide="calendar-days"></i></span>
+            <span class="metric-label">Visits</span>
+            <strong x-text="patientData.encounters.length"></strong>
+          </article>
+        </div>
+
+        <section class="record-grid" aria-label="Patient clinical summary">
+          <article class="record-section">
+            <header class="section-heading">
+              <div><i class="section-icon problems" data-lucide="stethoscope"></i><h3>Conditions</h3></div>
+              <span x-text="patientData.conditions.length"></span>
+            </header>
+            <div class="record-list">
+              <template x-for="item in visibleItems('conditions')" :key="item.id">
+                <div class="record-row" @click="openDetail('Condition', item.id)">
+                  <div class="record-row-main">
+                    <strong x-text="item.condition_name || 'Unnamed condition'"></strong>
+                    <span x-text="item.clinical_status || 'Status unavailable'"></span>
+                  </div>
+                  <button class="row-action" @click.stop="askAbout('condition', item.condition_name)" title="Ask MyHealth" aria-label="Ask MyHealth about this condition"><i data-lucide="sparkles"></i></button>
+                </div>
+              </template>
+              <p class="empty-state" x-show="!patientLoading && !patientData.conditions.length">No conditions found in this record.</p>
+            </div>
+            <button class="text-button" x-show="hasMore('conditions')" @click="toggleList('conditions')">
+              <span x-text="expanded.conditions ? 'Show less' : 'Show all ' + patientData.conditions.length"></span><span :class="{ 'rotate': expanded.conditions }"><i data-lucide="chevron-down"></i></span>
+            </button>
+          </article>
+
+          <article class="record-section">
+            <header class="section-heading">
+              <div><i class="section-icon medications" data-lucide="pill"></i><h3>Medications</h3></div>
+              <span x-text="patientData.medications.length"></span>
+            </header>
+            <div class="record-list">
+              <template x-for="item in visibleItems('medications')" :key="item.id">
+                <div class="record-row" @click="openDetail('MedicationRequest', item.id)">
+                  <div class="record-row-main">
+                    <strong x-text="item.medication_name || 'Unnamed medication'"></strong>
+                    <span x-text="item.status || 'Status unavailable'"></span>
+                  </div>
+                  <button class="row-action" @click.stop="askAbout('medication', item.medication_name)" title="Ask MyHealth" aria-label="Ask MyHealth about this medication"><i data-lucide="sparkles"></i></button>
+                </div>
+              </template>
+              <p class="empty-state" x-show="!patientLoading && !patientData.medications.length">No medications found in this record.</p>
+            </div>
+            <button class="text-button" x-show="hasMore('medications')" @click="toggleList('medications')">
+              <span x-text="expanded.medications ? 'Show less' : 'Show all ' + patientData.medications.length"></span><span :class="{ 'rotate': expanded.medications }"><i data-lucide="chevron-down"></i></span>
+            </button>
+          </article>
+
+          <article class="record-section">
+            <header class="section-heading">
+              <div><i class="section-icon results" data-lucide="flask-conical"></i><h3>Recent results</h3></div>
+              <span x-text="patientData.recent_observations.length"></span>
+            </header>
+            <div class="record-list">
+              <template x-for="item in visibleItems('recent_observations')" :key="item.id">
+                <div class="record-row" @click="openDetail('Observation', item.id)">
+                  <div class="record-row-main">
+                    <strong x-text="item.observation_name || 'Unnamed result'"></strong>
+                    <span><span x-text="formatValue(item.value, item.unit)"></span><span class="separator" x-show="item.date">/</span><span x-text="formatDate(item.date)"></span></span>
+                  </div>
+                  <button class="row-action" @click.stop="askAbout('result', item.observation_name)" title="Ask MyHealth" aria-label="Ask MyHealth about this result"><i data-lucide="sparkles"></i></button>
+                </div>
+              </template>
+              <p class="empty-state" x-show="!patientLoading && !patientData.recent_observations.length">No recent results found in this record.</p>
+            </div>
+            <button class="text-button" x-show="hasMore('recent_observations')" @click="toggleList('recent_observations')">
+              <span x-text="expanded.recent_observations ? 'Show less' : 'Show all ' + patientData.recent_observations.length"></span><span :class="{ 'rotate': expanded.recent_observations }"><i data-lucide="chevron-down"></i></span>
+            </button>
+          </article>
+
+          <article class="record-section">
+            <header class="section-heading">
+              <div><i class="section-icon visits" data-lucide="calendar-days"></i><h3>Visits</h3></div>
+              <span x-text="patientData.encounters.length"></span>
+            </header>
+            <div class="record-list">
+              <template x-for="item in visibleItems('encounters')" :key="item.id">
+                <div class="record-row" @click="openDetail('Encounter', item.id)">
+                  <div class="record-row-main">
+                    <strong x-text="item.class_display || item.class_code || 'Visit'"></strong>
+                    <span><span x-text="item.reason || item.status || 'No visit reason recorded'"></span><span class="separator" x-show="item.start">/</span><span x-text="formatDate(item.start)"></span></span>
+                  </div>
+                  <button class="row-action" @click.stop="askAbout('visit', item.reason || item.class_display)" title="Ask MyHealth" aria-label="Ask MyHealth about this visit"><i data-lucide="sparkles"></i></button>
+                </div>
+              </template>
+              <p class="empty-state" x-show="!patientLoading && !patientData.encounters.length">No visits found in this record.</p>
+            </div>
+            <button class="text-button" x-show="hasMore('encounters')" @click="toggleList('encounters')">
+              <span x-text="expanded.encounters ? 'Show less' : 'Show all ' + patientData.encounters.length"></span><span :class="{ 'rotate': expanded.encounters }"><i data-lucide="chevron-down"></i></span>
+            </button>
+          </article>
+        </section>
+
+        <section class="ask-band" aria-label="Ask MyHealth about this patient">
+          <div class="ask-band-icon"><i data-lucide="sparkles"></i></div>
+          <div class="ask-band-copy"><h3>Ask MyHealth</h3><p>Grounded in this patient’s connected record.</p></div>
+          <form class="inline-question" @submit.prevent="openChatWithDraft()">
+            <input type="text" x-model="draftQuestion" placeholder="Ask about the patient" aria-label="Ask about the patient">
+            <button class="primary-icon-button" type="submit" :disabled="!draftQuestion.trim()" title="Open chat" aria-label="Open chat"><i data-lucide="arrow-up"></i></button>
+          </form>
+        </section>
+      </section>
+
+      <section class="journey-page" x-show="view === 'journey'" x-cloak>
+        <header class="journey-header">
+          <div>
+            <p class="eyebrow">Longitudinal record</p>
+            <h2>Clinical journey</h2>
+            <p>Visits, results and treatment changes assembled from the connected FHIR record.</p>
+          </div>
+          <div class="journey-header-actions">
+            <span x-show="journeyData.generated_at">Updated <strong x-text="formatDate(journeyData.generated_at)"></strong></span>
+            <button class="icon-button" @click="loadPatientJourney()" :disabled="journeyLoading" title="Refresh patient journey" aria-label="Refresh patient journey">
+              <span :class="{ 'spin': journeyLoading }"><i data-lucide="refresh-cw"></i></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="journey-summary-band" aria-label="Current patient state">
+          <div><span>Active problems</span><strong x-text="journeyData.current_state.active_conditions.length"></strong></div>
+          <div><span>Current medications</span><strong x-text="journeyData.current_state.current_medications.length"></strong></div>
+          <div><span>Allergies</span><strong x-text="journeyData.current_state.allergies.length"></strong></div>
+          <div><span>Recent results</span><strong x-text="journeyData.current_state.recent_results.length"></strong></div>
+          <div class="journey-summary-source"><span>Evidence</span><strong x-text="journeyData.total_resources + ' records'"></strong></div>
+        </section>
+
+        <nav class="journey-filters" aria-label="Filter patient journey">
+          <template x-for="filter in journeyFilterOptions()" :key="filter.value">
+            <button :class="{ 'is-active': journeyFilter === filter.value }" @click="journeyFilter = filter.value; $nextTick(() => refreshIcons())">
+              <i :data-lucide="filter.icon"></i>
+              <span x-text="filter.label"></span>
+              <small x-text="journeyEpisodeCount(filter.value)"></small>
+            </button>
+          </template>
+        </nav>
+
+        <p class="data-error" x-show="journeyError" x-text="journeyError" x-cloak></p>
+        <div class="journey-loading" x-show="journeyLoading" x-cloak><span></span>Assembling the patient journey</div>
+        <p class="journey-empty" x-show="!journeyLoading && !journeyError && !filteredJourneyEpisodes().length" x-cloak>No episodes match this view.</p>
+
+        <div class="journey-groups" x-show="!journeyLoading">
+          <template x-for="group in journeyGroups()" :key="group.label">
+            <section class="journey-month">
+              <h3 x-text="group.label"></h3>
+              <div class="journey-timeline">
+                <template x-for="episode in group.episodes" :key="episode.id">
+                  <article class="journey-episode">
+                    <span class="journey-node" :class="'type-' + episode.type"><i :data-lucide="episodeIcon(episode.type)"></i></span>
+                    <div class="journey-episode-body">
+                      <header>
+                        <div>
+                          <p><span x-text="titleCase(episode.type)"></span><span x-show="episode.status"> / <span x-text="titleCase(episode.status)"></span></span></p>
+                          <h4 x-text="episode.title"></h4>
+                        </div>
+                        <time x-text="formatDate(episode.date) || 'Date unavailable'"></time>
+                      </header>
+                      <p class="journey-episode-summary" x-text="episode.summary"></p>
+                      <div class="journey-changes" x-show="episode.changes.length">
+                        <template x-for="change in episode.changes.slice(0, 3)" :key="change.resource_reference + change.label">
+                          <span :class="'change-' + change.category"><i data-lucide="git-compare-arrows"></i><span x-text="change.label"></span></span>
+                        </template>
+                      </div>
+                      <footer>
+                        <div class="episode-counts">
+                          <template x-for="entry in Object.entries(episode.category_counts)" :key="entry[0]"><span x-text="episodeItemLabel(entry[0], entry[1])"></span></template>
+                        </div>
+                        <div class="episode-actions">
+                          <button class="text-button compact" @click="openEpisode(episode)">View episode <i data-lucide="panel-right-open"></i></button>
+                          <button class="episode-ai-button" @click="askAboutEpisode(episode)" title="Ask MyHealth about this episode"><i data-lucide="sparkles"></i><span>Ask AI</span></button>
+                        </div>
+                      </footer>
+                    </div>
+                  </article>
+                </template>
+              </div>
+            </section>
+          </template>
+        </div>
+      </section>
+
+      <section class="chat-page" x-show="view === 'chat'" x-cloak>
+        <div class="chat-panel">
+          <header class="chat-header">
+            <div class="assistant-title"><span class="assistant-mark"><i data-lucide="sparkles"></i></span><div><h2>MyHealth</h2><p>Patient record assistant</p></div></div>
+            <button class="icon-button" @click="newConversation()" title="New conversation" aria-label="New conversation"><i data-lucide="square-pen"></i></button>
+          </header>
+          <div class="chat-messages" x-ref="chatMessages">
+            <div class="chat-empty" x-show="!messages.length">
+              <span class="assistant-mark large"><i data-lucide="sparkles"></i></span>
+              <h3>What would you like to know?</h3>
+              <div class="suggestion-list">
+                <button @click="useSuggestion('Summarize the recent problems in this record')">Summarize recent problems</button>
+                <button @click="useSuggestion('What medications are currently recorded?')">Current medications</button>
+                <button @click="useSuggestion('Show the most recent results')">Recent results</button>
+              </div>
+            </div>
+            <template x-for="message in messages" :key="message.id">
+              <article class="message" :class="message.role">
+                <span class="message-avatar" x-show="message.role === 'assistant'"><i data-lucide="sparkles"></i></span>
+                <div class="message-content">
+                  <p class="message-author" x-text="message.role === 'assistant' ? 'MyHealth' : 'You'"></p>
+                  <div class="message-body" :class="{ 'is-error': message.error }" x-html="renderMessage(message.content)"></div>
+                  <section class="answer-sources" x-show="message.role === 'assistant' && message.citations?.length" x-cloak>
+                    <div class="answer-sources-header">
+                      <span><i data-lucide="book-open-check"></i> Sources</span>
+                      <small x-text="`${message.citations?.length || 0} used`"></small>
+                    </div>
+                    <div class="answer-source-list">
+                      <template x-for="source in visibleCitations(message)" :key="source.id">
+                        <button class="answer-source" :class="{ 'is-static': !citationActionable(source) }" :disabled="!citationActionable(source)" @click="openCitation(source)">
+                          <span class="source-number" x-text="source.number"></span>
+                          <span class="source-copy">
+                            <strong x-text="source.title"></strong>
+                            <small x-text="citationMeta(source)"></small>
+                          </span>
+                          <i x-show="citationActionable(source)" :data-lucide="source.type === 'patient_record' ? 'panel-right-open' : 'external-link'"></i>
+                        </button>
+                      </template>
+                    </div>
+                    <button class="sources-toggle" x-show="message.citations?.length > 5" @click="toggleSources(message)">
+                      <span x-text="message.sourcesExpanded ? 'Show fewer' : `Show all ${message.citations.length} sources`"></span>
+                      <i :data-lucide="message.sourcesExpanded ? 'chevron-up' : 'chevron-down'"></i>
+                    </button>
+                  </section>
+                </div>
+              </article>
+            </template>
+            <article class="message assistant" x-show="chatBusy" x-cloak>
+              <span class="message-avatar"><i data-lucide="sparkles"></i></span>
+              <div class="message-content"><p class="message-author">MyHealth</p><div class="thinking"><span></span><span></span><span></span></div></div>
+            </article>
+          </div>
+          <form class="chat-composer" @submit.prevent="sendQuestion()">
+            <textarea x-ref="questionInput" x-model="draftQuestion" rows="1" maxlength="2000" :disabled="chatBusy" @keydown.enter.prevent="sendQuestion()" placeholder="Ask about this patient" aria-label="Ask about this patient"></textarea>
+            <button class="primary-icon-button" type="submit" :disabled="chatBusy || !draftQuestion.trim()" title="Send question" aria-label="Send question"><i data-lucide="arrow-up"></i></button>
+          </form>
+          <p class="chat-note">Patient-record responses include FHIR citations. Not medical advice.</p>
+        </div>
+        <aside class="chat-context">
+          <p class="eyebrow">In this record</p>
+          <h3 x-text="patientName"></h3>
+          <dl class="context-stats">
+            <div><dt>Conditions</dt><dd x-text="patientData.conditions.length"></dd></div>
+            <div><dt>Medications</dt><dd x-text="patientData.medications.length"></dd></div>
+            <div><dt>Results</dt><dd x-text="patientData.recent_observations.length"></dd></div>
+            <div><dt>Visits</dt><dd x-text="patientData.encounters.length"></dd></div>
+          </dl>
+          <button class="context-link" @click="setView('overview')">View patient overview <i data-lucide="arrow-up-right"></i></button>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" x-show="episodeDetail.open" x-cloak @click="closeEpisode()"></div>
+  <aside class="detail-drawer episode-drawer" :class="{ 'is-open': episodeDetail.open }" aria-label="Patient journey episode details" @click.stop>
+    <header class="drawer-header">
+      <div class="drawer-title"><p class="resource-type" x-text="episodeDetail.episode ? titleCase(episodeDetail.episode.type) + ' episode' : 'Episode'"></p><h2 x-text="episodeDetail.episode?.title || 'Episode details'"></h2></div>
+      <button class="icon-button" @click="closeEpisode()" title="Close episode" aria-label="Close episode"><i data-lucide="x"></i></button>
+    </header>
+    <div class="episode-drawer-meta" x-show="episodeDetail.episode">
+      <span><i data-lucide="calendar"></i><span x-text="formatDate(episodeDetail.episode?.date) || 'Date unavailable'"></span></span>
+      <span><i data-lucide="files"></i><span x-text="(episodeDetail.episode?.citations?.length || 0) + ' sources'"></span></span>
+      <button class="episode-ai-button" @click="askAboutEpisode(episodeDetail.episode)"><i data-lucide="sparkles"></i><span>Ask AI</span></button>
+    </div>
+    <div class="episode-drawer-body" x-show="episodeDetail.episode">
+      <section class="episode-detail-section" x-show="episodeDetail.episode?.changes?.length">
+        <h3>What changed</h3>
+        <div class="episode-change-list">
+          <template x-for="change in episodeDetail.episode?.changes || []" :key="change.resource_reference + change.label"><div><i data-lucide="git-compare-arrows"></i><span x-text="change.label"></span></div></template>
+        </div>
+      </section>
+      <section class="episode-detail-section">
+        <h3>Clinical records</h3>
+        <div class="episode-record-list">
+          <template x-for="item in episodeDetail.episode?.items || []" :key="item.reference">
+            <button @click="openJourneySource(item)">
+              <span class="episode-record-icon" :class="'type-' + item.category"><i :data-lucide="episodeIcon(item.category === 'visit' ? 'encounter' : item.category)"></i></span>
+              <span><small x-text="titleCase(item.category)"></small><strong x-text="item.display"></strong><em x-text="item.value !== null && item.value !== undefined ? formatValue(item.value, item.unit) : (item.status || formatDate(item.date))"></em></span>
+              <i data-lucide="chevron-right"></i>
+            </button>
+          </template>
+        </div>
+      </section>
+      <section class="episode-detail-section">
+        <h3>Sources</h3>
+        <div class="episode-source-list">
+          <template x-for="source in episodeDetail.episode?.citations || []" :key="source.reference">
+            <button @click="openJourneySource(source)"><i data-lucide="file-check-2"></i><span><strong x-text="source.title"></strong><small><span x-text="source.reference"></span><span x-show="source.version" x-text="' / version ' + source.version"></span></small></span><i data-lucide="panel-right-open"></i></button>
+          </template>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <div class="drawer-backdrop" x-show="detail.open" x-cloak @click="closeDetail()"></div>
+  <aside class="detail-drawer" :class="{ 'is-open': detail.open }" aria-label="FHIR resource details" @click.stop>
+    <header class="drawer-header">
+      <div class="drawer-title"><p class="resource-type" x-text="detail.resourceType || 'FHIR resource'"></p><h2 x-text="detail.title || 'Resource details'"></h2></div>
+      <button class="icon-button" @click="closeDetail()" title="Close details" aria-label="Close details"><i data-lucide="x"></i></button>
+    </header>
+    <div class="drawer-toolbar">
+      <button class="back-button" x-show="detail.history.length > 1" @click="detailBack()"><i data-lucide="arrow-left"></i> Back</button>
+      <p x-text="detail.relationship"></p>
+    </div>
+    <nav class="drawer-tabs" aria-label="Resource detail tabs">
+      <button :class="{ 'is-active': detail.tab === 'details' }" @click="detail.tab = 'details'">Details</button>
+      <button :class="{ 'is-active': detail.tab === 'related' }" @click="detail.tab = 'related'">Related</button>
+      <button :class="{ 'is-active': detail.tab === 'json' }" @click="detail.tab = 'json'">FHIR JSON</button>
+    </nav>
+    <div class="drawer-body">
+      <div class="drawer-loading" x-show="detail.loading"><span></span>Loading resource</div>
+      <p class="data-error" x-show="detail.error" x-text="detail.error"></p>
+      <dl class="detail-fields" x-show="!detail.loading && detail.tab === 'details'">
+        <template x-for="field in detailFields()" :key="field.label"><div><dt x-text="field.label"></dt><dd x-text="field.value || '-'"></dd></div></template>
+      </dl>
+      <div class="related-list" x-show="!detail.loading && detail.tab === 'related'">
+        <template x-for="item in detail.related" :key="item.reference.type + '/' + item.reference.id">
+          <button class="related-row" @click="openRelated(item)">
+            <span><small x-text="relationshipLabel(item.reference.path)"></small><strong x-text="relatedTitle(item.resource, item.reference)"></strong><em x-text="relatedSubtitle(item.resource, item.error)"></em></span>
+            <i data-lucide="chevron-right"></i>
+          </button>
+        </template>
+        <p class="empty-state" x-show="!detail.related.length">No related resources found.</p>
+      </div>
+      <pre class="json-view" x-show="!detail.loading && detail.tab === 'json'" x-text="formatJson(detail.resource)"></pre>
+    </div>
+  </aside>
+</body>
+</html>

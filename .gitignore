@@ -1,0 +1,50 @@
+# Local configuration and credentials
+AGENTS.md
+.env
+.env.*
+!.env.example
+auth_code.txt
+secrets/
+.secrets*
+*.token
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
+*credentials*.json
+.npmrc
+.pypirc
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+htmlcov/
+
+# Local tooling and archives
+google-cloud-sdk/
+google-cloud-cli.zip
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local CI workflow until the GitHub credential has workflow scope
+.github/workflows/
+
+# Logs and local databases
+*.log
+*.sqlite
+*.sqlite3
+
+# Third-party datasets provisioned separately under their own terms
+data/ddinter/*.csv
