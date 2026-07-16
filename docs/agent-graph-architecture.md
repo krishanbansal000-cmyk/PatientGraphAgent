@@ -81,34 +81,37 @@ Patient Search always combines:
 3. Graphiti semantic search over the patient memory graph.
 4. FHIR provenance and terminology validation.
 
-## Patient Memory Graph
+## Patient Memory Graph (Logical View)
 
 ```mermaid
 flowchart LR
-    JOURNEY[Patient Journey]
+    PATIENT[Patient]
     EP1[Patient Episode]
     EP2[Patient Episode]
-    SOURCE[FHIR Source Record]
-
-    PATIENT[Patient]
     VISIT[Visit]
     CONDITION[Condition]
     MEDICATION[Medication]
     OBSERVATION[Lab or Observation]
     SYMPTOM[Symptom]
-    OTHER[Procedure, Care Plan,<br/>Allergy or Immunization]
+    PROCEDURE[Procedure]
+    CAREPLAN[Care Plan]
+    ALLERGY[Allergy]
+    IMMUNIZATION[Immunization]
+    SOURCE[FHIR Source Record]
 
-    JOURNEY -->|HAS EPISODE| EP1
-    JOURNEY -->|HAS EPISODE| EP2
+    PATIENT -->|HAS EPISODE| EP1
+    PATIENT -->|HAS EPISODE| EP2
     EP1 -->|NEXT EPISODE| EP2
 
-    EP1 -->|MENTIONS| PATIENT
-    EP1 -->|MENTIONS| VISIT
-    EP1 -->|MENTIONS| CONDITION
-    EP1 -->|MENTIONS| MEDICATION
-    EP1 -->|MENTIONS| OBSERVATION
-    EP1 -->|MENTIONS| SYMPTOM
-    EP1 -->|MENTIONS| OTHER
+    EP1 -->|HAS VISIT| VISIT
+    EP1 -->|RECORDS| CONDITION
+    EP1 -->|RECORDS| MEDICATION
+    EP1 -->|RECORDS| OBSERVATION
+    EP1 -->|RECORDS| SYMPTOM
+    EP1 -->|RECORDS| PROCEDURE
+    EP1 -->|RECORDS| CAREPLAN
+    EP1 -->|RECORDS| ALLERGY
+    EP1 -->|RECORDS| IMMUNIZATION
 
     EP1 -->|DERIVED FROM| SOURCE
 
@@ -117,6 +120,10 @@ flowchart LR
     PATIENT -->|HAS RESULT| OBSERVATION
     PATIENT -->|REPORTED SYMPTOM| SYMPTOM
     PATIENT -->|HAS VISIT| VISIT
+    PATIENT -->|UNDERWENT| PROCEDURE
+    PATIENT -->|HAS CARE PLAN| CAREPLAN
+    PATIENT -->|HAS ALLERGY| ALLERGY
+    PATIENT -->|RECEIVED| IMMUNIZATION
 
     CONDITION -->|RECORDED DURING| VISIT
     MEDICATION -->|RECORDED DURING| VISIT
@@ -129,10 +136,14 @@ flowchart LR
 | Term | Meaning |
 |---|---|
 | Patient | The patient represented inside an isolated graph partition |
-| Patient Journey | The timeline container that keeps the patient's episodes ordered |
-| Patient Episode | One visit or bounded group of clinical events at a point in time |
-| Clinical entities | Conditions, medications, observations, symptoms, visits and other patient facts mentioned in an episode |
+| Patient Episode | A visit or bounded group of clinical events that belongs to the patient |
+| Visit | The encounter during which clinical events were recorded |
+| Clinical entities | Conditions, medications, observations, symptoms, procedures, care plans, allergies and immunizations |
 | FHIR Source Record | The exact authoritative record that supports an episode and its extracted facts |
+
+The patient owns the episodes. Episodes provide time and visit context, while
+the direct patient-to-clinical connections answer questions about the patient's
+conditions, medications, results, symptoms and other recorded facts.
 
 ## Data Boundary
 
