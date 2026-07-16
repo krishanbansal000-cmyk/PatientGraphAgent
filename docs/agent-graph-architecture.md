@@ -131,32 +131,38 @@ flowchart LR
     SYMPTOM -->|RECORDED DURING| VISIT
 ```
 
-### Graph Terms
+### Nodes
 
-| Term | Meaning |
+| Node | Meaning |
 |---|---|
-| Patient | The patient represented inside an isolated graph partition |
-| Patient Episode | A visit or bounded group of clinical events that belongs to the patient |
-| Visit | The encounter during which clinical events were recorded |
-| Clinical entities | Conditions, medications, observations, symptoms, procedures, care plans, allergies and immunizations |
-| FHIR Source Record | The exact authoritative record that supports an episode and its extracted facts |
+| `Patient` | Patient represented inside an isolated graph partition |
+| `PatientEpisode` | Visit or bounded group of clinical events belonging to the patient |
+| `Visit` | Encounter during which clinical events were recorded |
+| `Condition` | Recorded diagnosis, condition, or problem |
+| `Medication` | Recorded medication therapy |
+| `Observation` | Laboratory result, vital sign, or assessment |
+| `Symptom` | Recorded symptom or complaint |
+| `Procedure` | Diagnostic, therapeutic, or preventive procedure |
+| `CarePlan` | Care plan, goal, or planned clinical activity |
+| `Allergy` | Recorded allergy or intolerance |
+| `Immunization` | Recorded vaccine administration |
+| `FHIRSource` | Exact authoritative FHIR record supporting an episode |
 
-The patient owns the episodes. Episodes provide time and visit context, while
-the direct patient-to-clinical connections answer questions about the patient's
-conditions, medications, results, symptoms and other recorded facts.
+### Edges
 
-## Data Boundary
-
-```mermaid
-flowchart LR
-    PATIENT_DATA[FHIR Patient Record]
-    MEMORY[Graphiti Patient Memory]
-    TOOLS[Medical Dataset Tools]
-    AGENT[Agents]
-
-    PATIENT_DATA -->|exact patient facts| AGENT
-    MEMORY -->|semantic patient context| AGENT
-    TOOLS -->|terminology, drug and literature evidence| AGENT
-```
-
-The graph contains the patient journey and patient-specific semantic memory. RxNorm, ICD-10-CM, LOINC, DailyMed, DDInter and PubMed remain connected through tools rather than being copied into the patient graph.
+| Edge | Connection |
+|---|---|
+| `HAS_EPISODE` | Patient -> PatientEpisode |
+| `NEXT_EPISODE` | PatientEpisode -> PatientEpisode |
+| `HAS_VISIT` | Patient or PatientEpisode -> Visit |
+| `RECORDS` | PatientEpisode -> clinical entity |
+| `DERIVED_FROM` | PatientEpisode -> FHIRSource |
+| `HAS_CONDITION` | Patient -> Condition |
+| `HAS_MEDICATION` | Patient -> Medication |
+| `HAS_RESULT` | Patient -> Observation |
+| `REPORTED_SYMPTOM` | Patient -> Symptom |
+| `UNDERWENT` | Patient -> Procedure |
+| `HAS_CARE_PLAN` | Patient -> CarePlan |
+| `HAS_ALLERGY` | Patient -> Allergy |
+| `RECEIVED` | Patient -> Immunization |
+| `RECORDED_DURING` | Clinical entity -> Visit |
