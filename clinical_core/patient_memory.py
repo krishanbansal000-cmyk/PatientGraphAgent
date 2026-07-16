@@ -201,6 +201,9 @@ class PatientMemoryService:
             error_type = str(result.error).split(":", 1)[0][:80]
             response["fallback"] = f"ingestion failed ({error_type})"
 
+        episode_uuids = [
+            link.graphiti_uuid for link in result.episode_links
+        ]
         if result.episode_links:
             provenance_rows = self._build_provenance_rows(
                 resources,
@@ -218,20 +221,25 @@ class PatientMemoryService:
                 "linked": linked == len(result.episode_links),
                 "linked_episodes": linked,
             }
-            if result.error is None:
-                response["active_episodes"] = bridge.set_active_episodes(
-                    patient_id,
-                    group_id=journey.group_id,
-                    episode_uuids=[
-                        link.graphiti_uuid for link in result.episode_links
-                    ],
-                )
         else:
             response["provenance_bridge"] = {
                 "configured": True,
                 "linked": result.error is None,
                 "linked_episodes": 0,
             }
+        if result.error is None:
+            response["active_episodes"] = bridge.set_active_episodes(
+                patient_id,
+                group_id=journey.group_id,
+                episode_uuids=episode_uuids,
+            )
+            patient_view = bridge.project_patient_view(
+                group_id=journey.group_id,
+                episode_uuids=episode_uuids,
+            )
+            if not patient_view.get("projected"):
+                raise RuntimeError("Patient-centric graph projection was incomplete")
+            response["patient_view"] = patient_view
         return response
 
     @staticmethod

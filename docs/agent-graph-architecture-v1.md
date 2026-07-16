@@ -81,7 +81,7 @@ Patient Search always combines:
 3. Graphiti semantic search over the patient memory graph.
 4. FHIR provenance and terminology validation.
 
-## Patient Memory Graph (Logical View)
+## Patient Memory Graph
 
 ```mermaid
 flowchart LR

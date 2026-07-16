@@ -56,11 +56,39 @@ class ProvenanceConfig:
 class FHIRProvenanceBridge:
     """Patient-isolated links from Graphiti episodes to compact FHIR sources."""
 
+    _PATIENT_VIEW_PROJECTION = "patient_view_v1"
+    _PATIENT_VIEW_LABELS = (
+        ("PatientRecordSubject", "Patient"),
+        ("ClinicalEncounter", "Visit"),
+        ("ClinicalCondition", "Condition"),
+        ("MedicationTherapy", "Medication"),
+        ("ClinicalObservation", "Observation"),
+        ("PatientReportedSymptom", "Symptom"),
+        ("ClinicalProcedure", "Procedure"),
+        ("ClinicalCarePlan", "CarePlan"),
+        ("ClinicalAllergy", "Allergy"),
+        ("ClinicalImmunization", "Immunization"),
+    )
+    _PATIENT_CLINICAL_EDGES = (
+        ("Condition", "HAS_CONDITION"),
+        ("Medication", "HAS_MEDICATION"),
+        ("Observation", "HAS_RESULT"),
+        ("Symptom", "REPORTED_SYMPTOM"),
+        ("Procedure", "UNDERWENT"),
+        ("CarePlan", "HAS_CARE_PLAN"),
+        ("Allergy", "HAS_ALLERGY"),
+        ("Immunization", "RECEIVED"),
+    )
+
     _SCHEMA_QUERIES = (
         "CREATE CONSTRAINT fhir_source_graph_key IF NOT EXISTS "
         "FOR (n:FHIRSource) REQUIRE n.graph_key IS UNIQUE",
         "CREATE INDEX fhir_source_key IF NOT EXISTS "
         "FOR (n:FHIRSource) ON (n.fhir_key)",
+        "CREATE INDEX patient_view_group IF NOT EXISTS "
+        "FOR (n:Patient) ON (n.group_id)",
+        "CREATE INDEX patient_episode_view_group IF NOT EXISTS "
+        "FOR (n:PatientEpisode) ON (n.group_id)",
     )
 
     def __init__(self, config: ProvenanceConfig):
@@ -199,6 +227,197 @@ class FHIRProvenanceBridge:
                 episode_uuids=bounded_uuids,
             ).single()
         return int(record.get("active") or 0) if record else 0
+
+    def project_patient_view(
+        self,
+        *,
+        group_id: str,
+        episode_uuids: Sequence[str],
+    ) -> Dict[str, Any]:
+        """Project a simple patient-centric view over active Graphiti memory.
+
+        Graphiti's Episodic, Entity, MENTIONS, and RELATES_TO structures remain
+        intact for semantic search. This projection adds readable labels and
+        deterministic ownership/clinical edges without duplicating nodes.
+        """
+        self._ensure_schema()
+        bounded_uuids = list(
+            dict.fromkeys(str(value) for value in episode_uuids if value)
+        )[:500]
+        if not bounded_uuids:
+            with self._get_driver().session(database=self.config.database) as session:
+                session.run(
+                    "MATCH ()-[edge]->() "
+                    "WHERE edge.avinia_projection = $projection "
+                    "AND edge.group_id = $group_id DELETE edge",
+                    projection=self._PATIENT_VIEW_PROJECTION,
+                    group_id=group_id,
+                ).consume()
+                session.run(
+                    "MATCH (episode:Episodic {group_id: $group_id}) "
+                    "REMOVE episode:PatientEpisode",
+                    group_id=group_id,
+                ).consume()
+                for _, view_label in self._PATIENT_VIEW_LABELS:
+                    session.run(
+                        f"MATCH (entity:Entity {{group_id: $group_id}}) "
+                        f"REMOVE entity:{view_label}",
+                        group_id=group_id,
+                    ).consume()
+            return {
+                "projected": True,
+                "patients": 0,
+                "episodes": 0,
+                "records": 0,
+                "clinical_edges": 0,
+                "total_edges": 0,
+            }
+
+        parameters = {
+            "group_id": group_id,
+            "episode_uuids": bounded_uuids,
+            "projection": self._PATIENT_VIEW_PROJECTION,
+        }
+        patients = 0
+        episodes = 0
+        records = 0
+        clinical_edges = 0
+
+        with self._get_driver().session(database=self.config.database) as session:
+            session.run(
+                "MATCH ()-[edge]->() "
+                "WHERE edge.avinia_projection = $projection "
+                "AND edge.group_id = $group_id DELETE edge",
+                **parameters,
+            ).consume()
+
+            session.run(
+                "MATCH (episode:Episodic {group_id: $group_id}) "
+                "REMOVE episode:PatientEpisode",
+                **parameters,
+            ).consume()
+
+            for _, view_label in self._PATIENT_VIEW_LABELS:
+                session.run(
+                    f"MATCH (entity:Entity {{group_id: $group_id}}) "
+                    f"REMOVE entity:{view_label}",
+                    **parameters,
+                ).consume()
+
+            record = session.run(
+                "MATCH (entity:Entity:PatientRecordSubject {group_id: $group_id}) "
+                "WHERE entity.stable_key = $group_id "
+                "SET entity:Patient RETURN count(entity) AS projected",
+                **parameters,
+            ).single()
+            patients = int(record.get("projected") or 0) if record else 0
+
+            for source_label, view_label in self._PATIENT_VIEW_LABELS[1:]:
+                record = session.run(
+                    "MATCH (episode:Episodic {group_id: $group_id})-[:MENTIONS]->"
+                    f"(entity:Entity:{source_label} {{group_id: $group_id}}) "
+                    "WHERE episode.uuid IN $episode_uuids "
+                    f"SET entity:{view_label} "
+                    "RETURN count(DISTINCT entity) AS projected",
+                    **parameters,
+                ).single()
+
+            record = session.run(
+                "MATCH (episode:Episodic {group_id: $group_id}) "
+                "WHERE episode.uuid IN $episode_uuids "
+                "SET episode:PatientEpisode "
+                "RETURN count(episode) AS projected",
+                **parameters,
+            ).single()
+            episodes = int(record.get("projected") or 0) if record else 0
+
+            record = session.run(
+                "MATCH (patient:Patient:PatientRecordSubject {group_id: $group_id}) "
+                "WHERE patient.stable_key = $group_id "
+                "MATCH (episode:PatientEpisode {group_id: $group_id}) "
+                "WHERE episode.uuid IN $episode_uuids "
+                "MERGE (patient)-[edge:HAS_EPISODE]->(episode) "
+                "SET edge.group_id = $group_id, edge.avinia_projection = $projection "
+                "RETURN count(edge) AS projected",
+                **parameters,
+            ).single()
+            ownership_edges = int(record.get("projected") or 0) if record else 0
+
+            record = session.run(
+                "MATCH (episode:PatientEpisode {group_id: $group_id})-[:MENTIONS]->"
+                "(visit:Visit:ClinicalEncounter {group_id: $group_id}) "
+                "WHERE episode.uuid IN $episode_uuids "
+                "MERGE (episode)-[edge:HAS_VISIT]->(visit) "
+                "SET edge.group_id = $group_id, edge.avinia_projection = $projection "
+                "RETURN count(edge) AS projected",
+                **parameters,
+            ).single()
+            visit_edges = int(record.get("projected") or 0) if record else 0
+
+            record = session.run(
+                "MATCH (episode:PatientEpisode {group_id: $group_id})-[:MENTIONS]->"
+                "(entity:Entity {group_id: $group_id}) "
+                "WHERE episode.uuid IN $episode_uuids "
+                "AND NOT entity:PatientRecordSubject AND NOT entity:ClinicalEncounter "
+                "MERGE (episode)-[edge:RECORDS]->(entity) "
+                "SET edge.group_id = $group_id, edge.avinia_projection = $projection "
+                "RETURN count(edge) AS projected",
+                **parameters,
+            ).single()
+            records = int(record.get("projected") or 0) if record else 0
+
+            record = session.run(
+                "MATCH (patient:Patient:PatientRecordSubject {group_id: $group_id}) "
+                "WHERE patient.stable_key = $group_id "
+                "MATCH (patient)-[:HAS_EPISODE]->(episode:PatientEpisode)-[:HAS_VISIT]->"
+                "(visit:Visit) "
+                "MERGE (patient)-[edge:HAS_VISIT]->(visit) "
+                "SET edge.group_id = $group_id, edge.avinia_projection = $projection "
+                "RETURN count(edge) AS projected",
+                **parameters,
+            ).single()
+            direct_visit_edges = int(record.get("projected") or 0) if record else 0
+
+            for target_label, relationship_type in self._PATIENT_CLINICAL_EDGES:
+                record = session.run(
+                    "MATCH (patient:Patient:PatientRecordSubject {group_id: $group_id}) "
+                    "WHERE patient.stable_key = $group_id "
+                    "MATCH (patient)-[:HAS_EPISODE]->(episode:PatientEpisode)-[:RECORDS]->"
+                    f"(target:{target_label} {{group_id: $group_id}}) "
+                    f"MERGE (patient)-[edge:{relationship_type}]->(target) "
+                    "SET edge.group_id = $group_id, edge.avinia_projection = $projection "
+                    "RETURN count(edge) AS projected",
+                    **parameters,
+                ).single()
+                clinical_edges += int(record.get("projected") or 0) if record else 0
+
+            record = session.run(
+                "MATCH (episode:PatientEpisode {group_id: $group_id})-[:HAS_VISIT]->"
+                "(visit:Visit) "
+                "MATCH (episode)-[:RECORDS]->(entity:Entity) "
+                "MERGE (entity)-[edge:RECORDED_DURING]->(visit) "
+                "SET edge.group_id = $group_id, edge.avinia_projection = $projection "
+                "RETURN count(edge) AS projected",
+                **parameters,
+            ).single()
+            recorded_during_edges = int(record.get("projected") or 0) if record else 0
+
+        total_edges = (
+            ownership_edges
+            + visit_edges
+            + direct_visit_edges
+            + records
+            + clinical_edges
+            + recorded_during_edges
+        )
+        return {
+            "projected": patients > 0 and episodes == len(bounded_uuids),
+            "patients": patients,
+            "episodes": episodes,
+            "records": records,
+            "clinical_edges": clinical_edges,
+            "total_edges": total_edges,
+        }
 
 
 _bridge: Optional[FHIRProvenanceBridge] = None

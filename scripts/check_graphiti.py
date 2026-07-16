@@ -18,6 +18,31 @@ if not URI or not USER or not PASSWORD:
 driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
 
 with driver.session(database=DATABASE) as s:
+    print("=== PATIENT-CENTRIC VIEW ===")
+    result = s.run("""
+        MATCH (node)
+        UNWIND labels(node) AS label
+        WITH label, count(DISTINCT node) AS count
+        WHERE label IN ['Patient', 'PatientEpisode', 'Visit', 'Condition',
+                        'Medication', 'Observation', 'Symptom', 'Procedure',
+                        'CarePlan', 'Allergy', 'Immunization']
+        RETURN label, count ORDER BY label
+    """)
+    for r in result:
+        print(f"  {r['label']}: {r['count']}")
+
+    print()
+    print("=== PATIENT-CENTRIC EDGES ===")
+    result = s.run("""
+        MATCH ()-[edge]->()
+        WHERE edge.avinia_projection = 'patient_view_v1'
+        RETURN type(edge) AS type, count(edge) AS count
+        ORDER BY type
+    """)
+    for r in result:
+        print(f"  {r['type']}: {r['count']}")
+    print()
+
     # Graphiti node counts
     print("=== GRAPHITI NODE COUNTS ===")
     result = s.run("""

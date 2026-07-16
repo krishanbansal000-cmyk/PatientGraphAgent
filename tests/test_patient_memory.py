@@ -64,6 +64,26 @@ class _FakeGraphitiClient:
         self.closed = True
 
 
+class _FakeSyncBridge:
+    def __init__(self):
+        self.config = SimpleNamespace(source_id="test-fhir-store")
+        self.active_episode_uuids = None
+        self.projected_episode_uuids = None
+
+    def set_active_episodes(self, patient_id, *, group_id, episode_uuids):
+        self.active_episode_uuids = list(episode_uuids)
+        return len(episode_uuids)
+
+    def project_patient_view(self, *, group_id, episode_uuids):
+        self.projected_episode_uuids = list(episode_uuids)
+        return {
+            "projected": True,
+            "patients": 0,
+            "episodes": len(episode_uuids),
+            "total_edges": 0,
+        }
+
+
 class PatientMemoryTests(unittest.TestCase):
     def test_sync_now_waits_and_marks_synchronous_execution(self):
         service = _ImmediateMemoryService()
@@ -147,6 +167,54 @@ class PatientMemoryTests(unittest.TestCase):
         self.assertEqual(source["graph_key"], "fhir-store|Condition/c1")
         self.assertNotIn("patient_id", source)
         self.assertEqual(source["fhir_version"], "7")
+
+    def test_successful_empty_sync_clears_patient_view(self):
+        service = PatientMemoryService()
+        bridge = _FakeSyncBridge()
+        client = _FakeGraphitiClient()
+        ingestion_result = SimpleNamespace(
+            configured=True,
+            attempted=0,
+            ingested=0,
+            reused=0,
+            skipped=0,
+            invalid_entities_removed=0,
+            invalid_edges_removed=0,
+            unsafe_result_edges_removed=0,
+            episode_links=[],
+            error=None,
+        )
+
+        async def ingest_memory_episodes(client, episodes):
+            return ingestion_result
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "clinical_core.graphiti_client": SimpleNamespace(
+                    graphiti_is_configured=lambda: True,
+                    create_graphiti_client=lambda: client,
+                ),
+                "clinical_core.graphiti_ingestion": SimpleNamespace(
+                    PATIENT_JOURNEY_SAGA="patient_clinical_journey",
+                    build_memory_episodes=lambda journey: [],
+                    ingest_memory_episodes=ingest_memory_episodes,
+                ),
+            },
+        ):
+            result = asyncio.run(
+                service._sync_graphiti(
+                    "john",
+                    [{"resourceType": "Patient", "id": "john"}],
+                    "test",
+                    bridge,
+                )
+            )
+
+        self.assertTrue(result["synced"])
+        self.assertEqual(bridge.active_episode_uuids, [])
+        self.assertEqual(bridge.projected_episode_uuids, [])
+        self.assertTrue(client.closed)
 
 
 if __name__ == "__main__":

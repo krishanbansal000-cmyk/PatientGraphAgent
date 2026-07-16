@@ -50,6 +50,8 @@ class _Session:
             )
         if "RETURN count(CASE WHEN memory.avinia_active" in query:
             return _Result([{"active": 1}])
+        if "AS projected" in query:
+            return _Result([{"projected": 1}])
         return _Result()
 
 
@@ -121,6 +123,42 @@ class FHIRProvenanceBridgeTests(unittest.TestCase):
         self.assertIn("derived.group_id = $group_id", query)
         self.assertEqual(parameters["patient_id"], "john")
         self.assertEqual(parameters["group_id"], "patient-group")
+
+    def test_patient_view_reuses_graphiti_nodes_with_readable_edges(self):
+        result = self.bridge.project_patient_view(
+            group_id="patient-group",
+            episode_uuids=["episode-1"],
+        )
+
+        self.assertTrue(result["projected"])
+        self.assertEqual(result["patients"], 1)
+        self.assertEqual(result["episodes"], 1)
+        queries = "\n".join(query for query, _ in self.session.calls)
+        self.assertIn("SET entity:Patient", queries)
+        self.assertIn("SET episode:PatientEpisode", queries)
+        self.assertIn("[edge:HAS_EPISODE]", queries)
+        self.assertIn("[edge:HAS_VISIT]", queries)
+        self.assertIn("[edge:RECORDS]", queries)
+        self.assertIn("[edge:HAS_CONDITION]", queries)
+        self.assertIn("[edge:HAS_MEDICATION]", queries)
+        self.assertIn("[edge:HAS_RESULT]", queries)
+        self.assertIn("[edge:REPORTED_SYMPTOM]", queries)
+        self.assertIn("[edge:RECORDED_DURING]", queries)
+        self.assertIn("edge.avinia_projection = $projection", queries)
+        self.assertNotIn("CREATE (", queries)
+
+    def test_empty_patient_view_removes_stale_projection(self):
+        result = self.bridge.project_patient_view(
+            group_id="patient-group",
+            episode_uuids=[],
+        )
+
+        self.assertTrue(result["projected"])
+        self.assertEqual(result["total_edges"], 0)
+        queries = "\n".join(query for query, _ in self.session.calls)
+        self.assertIn("DELETE edge", queries)
+        self.assertIn("REMOVE episode:PatientEpisode", queries)
+        self.assertIn("REMOVE entity:Condition", queries)
 
 
 if __name__ == "__main__":

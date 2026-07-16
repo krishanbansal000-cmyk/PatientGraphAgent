@@ -7,7 +7,7 @@ optional Neo4j/Graphiti patient-memory graph, and an Alpine.js interface.
 Detailed UML, graph, data-contract, ingestion, and retrieval
 diagrams are in [docs/architecture.md](docs/architecture.md).
 A shorter agent and patient graph overview is in
-[docs/agent-graph-architecture.md](docs/agent-graph-architecture.md).
+[docs/agent-graph-architecture-v1.md](docs/agent-graph-architecture-v1.md).
 
 ## Patient question retrieval
 
@@ -71,70 +71,59 @@ vocabularies in bulk.
 
 ## Graphiti semantic memory
 
-Cloud Healthcare FHIR is the only clinical source of truth. Exact conditions,
-medications, observations, dates, statuses, and timelines are retrieved from
-FHIR. Neo4j contains Graphiti's patient-partitioned temporal memory and a small
-provenance bridge:
+Cloud Healthcare FHIR is the only clinical source of truth. Neo4j contains
+Graphiti semantic memory plus a deterministic patient-facing view over the same
+nodes:
 
 ```text
-Saga -[:HAS_EPISODE]-> Episodic -[:MENTIONS]-> Entity
-Entity -[:RELATES_TO]-> Entity
-Episodic -[:DERIVED_FROM]-> FHIRSource
+Patient -[:HAS_EPISODE]-> PatientEpisode
+PatientEpisode -[:NEXT_EPISODE]-> PatientEpisode
+PatientEpisode -[:HAS_VISIT]-> Visit
+PatientEpisode -[:RECORDS]-> Clinical entity
+PatientEpisode -[:DERIVED_FROM]-> FHIRSource
 ```
 
 ### Graph nodes
 
 | Node | Purpose |
 |---|---|
-| `Saga` | Patient-scoped journey container that orders memory episodes |
-| `Episodic` | Bounded temporal memory created from one patient episode |
-| `FHIRSource` | Provenance pointer to an authoritative FHIR resource |
-| `PatientRecordSubject` | Non-identifying patient entity inside the isolated graph partition |
-| `ClinicalEncounter` | Visit, emergency presentation, admission, or other encounter |
-| `ClinicalCondition` | Recorded diagnosis, problem, or condition |
-| `MedicationTherapy` | Medication order, statement, dispense, or administration |
-| `ClinicalObservation` | Laboratory result, vital sign, measurement, or assessment |
-| `PatientReportedSymptom` | Recorded symptom or complaint |
-| `ClinicalProcedure` | Diagnostic, therapeutic, or preventive procedure |
-| `ClinicalCarePlan` | Care plan, goal, or planned clinical activity |
-| `ClinicalAllergy` | Allergy or intolerance |
-| `ClinicalImmunization` | Recorded vaccine administration |
-
-The clinical nodes are Graphiti `Entity` nodes with the corresponding typed
-label and properties constrained by `clinical_core/clinical_graph_schema.py`.
+| `Patient` | Patient inside an isolated graph partition |
+| `PatientEpisode` | Bounded dated group of clinical events belonging to the patient |
+| `Visit` | Clinical encounter linked to an episode |
+| `Condition` | Recorded diagnosis, condition, or problem |
+| `Medication` | Recorded medication therapy |
+| `Observation` | Laboratory result, vital sign, or assessment |
+| `Symptom` | Recorded symptom or complaint |
+| `Procedure` | Diagnostic, therapeutic, or preventive procedure |
+| `CarePlan` | Care plan, goal, or planned activity |
+| `Allergy` | Recorded allergy or intolerance |
+| `Immunization` | Recorded vaccine administration |
+| `FHIRSource` | Pointer to an authoritative FHIR resource and version |
 
 ### Graph edges
 
-| Neo4j edge | From | To | Purpose |
+| Edge | From | To | Purpose |
 |---|---|---|---|
-| `HAS_EPISODE` | `Saga` | `Episodic` | Episode belongs to the patient's journey |
-| `NEXT_EPISODE` | `Episodic` | `Episodic` | Chronological episode ordering |
-| `MENTIONS` | `Episodic` | `Entity` | Episode contains or discusses the clinical entity |
-| `RELATES_TO` | `Entity` | `Entity` | Temporal clinical fact extracted by Graphiti |
-| `DERIVED_FROM` | `Episodic` | `FHIRSource` | Exact FHIR provenance for the episode |
+| `HAS_EPISODE` | `Patient` | `PatientEpisode` | Direct patient ownership |
+| `NEXT_EPISODE` | `PatientEpisode` | `PatientEpisode` | Chronological ordering |
+| `HAS_VISIT` | `Patient` or `PatientEpisode` | `Visit` | Visit association |
+| `RECORDS` | `PatientEpisode` | Clinical entity | Clinical facts recorded in the episode |
+| `DERIVED_FROM` | `PatientEpisode` | `FHIRSource` | Exact FHIR provenance |
+| `HAS_CONDITION` | `Patient` | `Condition` | Patient condition |
+| `HAS_MEDICATION` | `Patient` | `Medication` | Patient medication |
+| `HAS_RESULT` | `Patient` | `Observation` | Patient result or measurement |
+| `REPORTED_SYMPTOM` | `Patient` | `Symptom` | Patient-reported symptom |
+| `UNDERWENT` | `Patient` | `Procedure` | Patient procedure |
+| `HAS_CARE_PLAN` | `Patient` | `CarePlan` | Patient care plan |
+| `HAS_ALLERGY` | `Patient` | `Allergy` | Patient allergy or intolerance |
+| `RECEIVED` | `Patient` | `Immunization` | Patient immunization |
+| `RECORDED_DURING` | Clinical entity | `Visit` | Visit context |
 
-`RELATES_TO` is the physical Neo4j relationship. Its clinical relationship
-name is restricted to:
-
-- `HAS_ENCOUNTER`
-- `HAS_CONDITION`
-- `HAS_MEDICATION_THERAPY`
-- `HAS_CLINICAL_RESULT`
-- `REPORTED_SYMPTOM`
-- `UNDERWENT_PROCEDURE`
-- `HAS_CARE_PLAN`
-- `HAS_ALLERGY`
-- `RECEIVED_IMMUNIZATION`
-- `OCCURRED_DURING_ENCOUNTER`
-
-`FHIRSource` stores only the resource identity, version, update time, and FHIR
-store identity needed for citations. It does not duplicate the FHIR resource.
-Semantic facts are returned only when their Graphiti episode resolves to a
-patient-owned `FHIRSource` link.
-
-The logical names carried by `RELATES_TO` are restricted to the clinical
-schema in `clinical_core/clinical_graph_schema.py`. Exact lab values and calculated
-trends are read from FHIR at query time rather than stored as semantic facts.
+The view reuses Graphiti nodes and adds labels and deterministic relationships;
+it does not duplicate clinical entities. Graphiti's internal semantic edges stay
+in place for hybrid search. Semantic facts are returned only when their episode
+resolves to patient-owned `FHIRSource` provenance. Exact lab values and trends
+are still read from FHIR at query time.
 
 Patient requests read the existing semantic memory but never rebuild it in a
 Cloud Run background thread. Rebuild explicitly with
