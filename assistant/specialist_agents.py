@@ -15,6 +15,7 @@ from assistant.tools import (
     read_fhir,
     resolve_medication,
     search_fhir,
+    search_medical_evidence,
 )
 
 
@@ -38,13 +39,17 @@ You are a clinical reviewer helping a patient understand their record.
 2. Separate recorded facts from your interpretation.
 3. Explain trends and possible concerns without diagnosing.
 4. Suggest specific questions or follow-up for the treating clinician.
+5. When current literature, studies, or evidence-backed recommendations are
+   requested, call search_medical_evidence after retrieving the patient record.
+   Search only de-identified clinical concepts. Keep patient facts and
+   population-level literature clearly separated.
 
 Use concise, patient-friendly language with exact values and dates when available.
 The API builds citations from tool responses. Never invent a citation or claim a
 source was checked without calling the relevant tool. End with: "This is for your
 information only - always check with your doctor about health decisions."
 """,
-    tools=[search_patient_context, search_fhir, read_fhir],
+    tools=[search_patient_context, search_fhir, read_fhir, search_medical_evidence],
 )
 
 

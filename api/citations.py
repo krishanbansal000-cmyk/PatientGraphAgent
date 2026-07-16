@@ -11,6 +11,7 @@ _ALLOWED_SOURCE_TYPES = {
     "drug_label",
     "terminology",
     "interaction_database",
+    "medical_literature",
 }
 _ALLOWED_URL_HOSTS = {
     "clinicaltables.nlm.nih.gov",
@@ -18,6 +19,7 @@ _ALLOWED_URL_HOSTS = {
     "ftp.cdc.gov",
     "rxnav.nlm.nih.gov",
     "www.nlm.nih.gov",
+    "pubmed.ncbi.nlm.nih.gov",
 }
 _PUBLIC_FIELDS = {
     "id",
@@ -36,6 +38,9 @@ _PUBLIC_FIELDS = {
     "ddinter_id_b",
     "dataset",
     "version",
+    "pmid",
+    "journal",
+    "doi",
 }
 
 

@@ -16,6 +16,7 @@ from assistant.tools import (
     resolve_lab_code,
     resolve_medication,
     search_fhir,
+    search_medical_evidence,
 )
 from assistant.specialist_agents import doctor_agent, insurance_agent, pharmacy_agent
 
@@ -73,6 +74,16 @@ TOOLS:
 - resolve_lab_code: Map a lab name to LOINC.
 - check_interaction: Check two normalized drugs using DDInter 2.0.
 - get_drug_info: Get official label information from DailyMed.
+- search_medical_evidence: Search PubMed for population-level medical literature.
+
+For literature, study, research, evidence, or guideline questions, call
+search_medical_evidence. For patient-specific questions, retrieve the relevant
+FHIR evidence first. Build the PubMed query only from confirmed clinical concepts,
+interventions, and outcomes; never send the patient's name, ID, dates of birth,
+free-text visit narrative, or unique details to PubMed. Clearly separate what is
+recorded for this patient from what the literature reports, and do not claim that
+a study proves what applies to this individual. Summarize articles rather than
+quoting their abstracts.
 
 For side effects, warnings, indications, or dosage, do not answer from model
 memory. Establish the medication from the conversation or patient record. Resolve
@@ -107,6 +118,7 @@ RULES:
         resolve_lab_code,
         check_interaction,
         get_drug_info,
+        search_medical_evidence,
     ],
     sub_agents=[doctor_agent, insurance_agent, pharmacy_agent],
 )

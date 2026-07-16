@@ -4,26 +4,8 @@ MyHealth is a patient-facing health assistant for synthetic-data prototyping.
 It combines Google Cloud Healthcare API FHIR retrieval, an ADK agent, an
 optional Neo4j/Graphiti patient-memory graph, and an Alpine.js interface.
 
-Detailed UML, graph, data-contract, ingestion, retrieval, and deployment
+Detailed UML, graph, data-contract, ingestion, and retrieval
 diagrams are in [docs/architecture.md](docs/architecture.md).
-
-## Local setup
-
-```powershell
-Copy-Item .env.example .env
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-uvicorn api.main:app --host 0.0.0.0 --port 8080
-```
-
-Set the project, FHIR store, synthetic patient, prototype login, and optional
-Neo4j values in `.env`. The file is intentionally excluded from Git. Local GCP
-Application Default Credentials are required to query the configured FHIR
-store and Vertex AI.
-
-Open `http://localhost:8080/ui/`. The shared-password login is only for the
-synthetic-data MVP and must be replaced before using real patient data.
 
 ## Patient question retrieval
 
@@ -58,6 +40,14 @@ Misspelled medication names are resolved against medications actually present
 in the patient record. Ambiguous medication requests return a clarification
 question, and unmatched terms are marked `not_found` rather than inferred from
 unrelated recent data.
+
+## Medical literature evidence
+
+The agent can search PubMed on demand through NCBI E-utilities. It returns
+structured article metadata and source links for the UI citation list. Patient
+facts are retrieved from FHIR first; PubMed searches contain only de-identified
+clinical concepts, interventions, and outcomes. Literature remains
+population-level supporting evidence and is not written into the patient graph.
 
 ## Terminology enrichment
 

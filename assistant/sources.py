@@ -105,6 +105,25 @@ def ddinter_source(interaction: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     )
 
 
+def pubmed_source(article: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pmid = str(article.get("pmid") or "").strip()
+    if not pmid:
+        return None
+    return _compact(
+        {
+            "id": f"pubmed:{pmid}",
+            "type": "medical_literature",
+            "title": article.get("title") or f"PubMed article {pmid}",
+            "publisher": "PubMed / U.S. National Library of Medicine",
+            "pmid": pmid,
+            "journal": article.get("journal"),
+            "date": article.get("published_at"),
+            "doi": article.get("doi"),
+            "url": f"https://pubmed.ncbi.nlm.nih.gov/{quote(pmid)}/",
+        }
+    )
+
+
 def _resource_title(resource: Dict[str, Any]) -> str:
     for key in ("code", "medicationCodeableConcept", "valueCodeableConcept"):
         concept = resource.get(key)

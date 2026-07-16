@@ -79,6 +79,28 @@ class CitationTests(unittest.TestCase):
         self.assertEqual(citation["dataset"], source["dataset"])
         self.assertIn("url", citation)
 
+    def test_keeps_pubmed_article_metadata_and_link(self):
+        source = {
+            "id": "pubmed:12345678",
+            "type": "medical_literature",
+            "title": "Clinical evidence",
+            "publisher": "PubMed / U.S. National Library of Medicine",
+            "pmid": "12345678",
+            "journal": "Medical Journal",
+            "date": "2025-01-07",
+            "doi": "10.1000/example",
+            "url": "https://pubmed.ncbi.nlm.nih.gov/12345678/",
+        }
+        event = FakeEvent(
+            [SimpleNamespace(name="search_medical_evidence", response={"sources": [source]})]
+        )
+
+        citation = collect_event_citations([event])[0]
+        self.assertEqual(citation["pmid"], "12345678")
+        self.assertEqual(citation["journal"], "Medical Journal")
+        self.assertEqual(citation["doi"], "10.1000/example")
+        self.assertIn("url", citation)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ Also includes:
 - check_interaction via DDInter 2.0
 - get_drug_info via DailyMed FDA labels
 - resolve_lab_code via LOINC
+- search_medical_evidence via PubMed
 """
 
 import os
@@ -19,12 +20,14 @@ from assistant.fhir_client import FhirClient
 from assistant.terminology import RxNormClient, LoincClient
 from assistant.ddinter import DDInterDatabase
 from assistant.dailymed import DailyMedClient
+from assistant.pubmed import PubMedClient
 from assistant.sources import (
     dailymed_source,
     ddinter_source,
     deduplicate_sources,
     fhir_source,
     loinc_source,
+    pubmed_source,
     rxnorm_source,
 )
 
@@ -34,6 +37,7 @@ _rxnorm_client: Optional[RxNormClient] = None
 _loinc_client: Optional[LoincClient] = None
 _ddinter_db: Optional[DDInterDatabase] = None
 _dailymed_client: Optional[DailyMedClient] = None
+_pubmed_client: Optional[PubMedClient] = None
 
 
 def _get_fhir_client() -> FhirClient:
@@ -346,3 +350,62 @@ def get_drug_info(rxcui: str, drug_name: str = "") -> Dict[str, Any]:
         "error": "No drug label found",
         "sources": [],
     }
+
+
+def search_medical_evidence(
+    query: str,
+    max_results: int = 5,
+    date_start: str = "",
+    date_end: str = "",
+    article_type: str = "",
+) -> Dict[str, Any]:
+    """Search PubMed for medical literature and return structured citations.
+
+    Use this for research evidence, clinical studies, reviews, or guidelines.
+    Search with de-identified clinical concepts only. Never include a patient
+    name, patient ID, exact visit narrative, or other identifying information.
+
+    Supported article_type values are: systematic review, meta-analysis,
+    randomized controlled trial, clinical trial, guideline, and review.
+
+    Examples:
+      search_medical_evidence("type 2 diabetes metformin cardiovascular outcomes")
+      search_medical_evidence("hypertension thiazide adverse effects", article_type="review")
+      search_medical_evidence("HbA1c treatment target type 2 diabetes", date_start="2022-01-01")
+
+    Args:
+        query: De-identified clinical concepts and evidence question.
+        max_results: Number of articles to return, from 1 to 8.
+        date_start: Optional publication start date in YYYY-MM-DD format.
+        date_end: Optional publication end date in YYYY-MM-DD format.
+        article_type: Optional supported PubMed publication type filter.
+    """
+    global _pubmed_client
+    if _pubmed_client is None:
+        _pubmed_client = PubMedClient()
+    try:
+        articles = _pubmed_client.search(
+            query,
+            max_results=max_results,
+            date_start=date_start,
+            date_end=date_end,
+            article_type=article_type,
+        )
+        return {
+            "query": query,
+            "count": len(articles),
+            "articles": articles,
+            "sources": deduplicate_sources(pubmed_source(article) for article in articles),
+            "notice": (
+                "PubMed results are population-level literature, not facts from the "
+                "patient record. Summarize findings and avoid reproducing abstracts."
+            ),
+        }
+    except Exception as exc:
+        return {
+            "query": query,
+            "count": 0,
+            "articles": [],
+            "sources": [],
+            "error": str(exc),
+        }

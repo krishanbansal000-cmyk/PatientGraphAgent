@@ -7,3 +7,4 @@ pydantic==2.13.4
 python-dotenv==1.2.2
 neo4j==5.28.4
 graphiti-core[google-genai]==0.29.2
+requests==2.32.3
