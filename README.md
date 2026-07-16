@@ -6,8 +6,8 @@ optional Neo4j/Graphiti patient-memory graph, and an Alpine.js interface.
 
 Detailed UML, graph, data-contract, ingestion, and retrieval
 diagrams are in [docs/architecture.md](docs/architecture.md).
-A shorter current-state agent and graph overview is in
-[docs/current-agent-graph-architecture.md](docs/current-agent-graph-architecture.md).
+A shorter agent and patient graph overview is in
+[docs/agent-graph-architecture.md](docs/agent-graph-architecture.md).
 
 ## Patient question retrieval
 
