@@ -80,6 +80,51 @@ Entity -[:RELATES_TO]-> Entity
 Episodic -[:DERIVED_FROM]-> FHIRSource
 ```
 
+### Graph nodes
+
+| Node | Purpose |
+|---|---|
+| `Saga` | Patient-scoped journey container that orders memory episodes |
+| `Episodic` | Bounded temporal memory created from one patient episode |
+| `FHIRSource` | Provenance pointer to an authoritative FHIR resource |
+| `PatientRecordSubject` | Non-identifying patient entity inside the isolated graph partition |
+| `ClinicalEncounter` | Visit, emergency presentation, admission, or other encounter |
+| `ClinicalCondition` | Recorded diagnosis, problem, or condition |
+| `MedicationTherapy` | Medication order, statement, dispense, or administration |
+| `ClinicalObservation` | Laboratory result, vital sign, measurement, or assessment |
+| `PatientReportedSymptom` | Recorded symptom or complaint |
+| `ClinicalProcedure` | Diagnostic, therapeutic, or preventive procedure |
+| `ClinicalCarePlan` | Care plan, goal, or planned clinical activity |
+| `ClinicalAllergy` | Allergy or intolerance |
+| `ClinicalImmunization` | Recorded vaccine administration |
+
+The clinical nodes are Graphiti `Entity` nodes with the corresponding typed
+label and properties constrained by `clinical_core/clinical_graph_schema.py`.
+
+### Graph edges
+
+| Neo4j edge | From | To | Purpose |
+|---|---|---|---|
+| `HAS_EPISODE` | `Saga` | `Episodic` | Episode belongs to the patient's journey |
+| `NEXT_EPISODE` | `Episodic` | `Episodic` | Chronological episode ordering |
+| `MENTIONS` | `Episodic` | `Entity` | Episode contains or discusses the clinical entity |
+| `RELATES_TO` | `Entity` | `Entity` | Temporal clinical fact extracted by Graphiti |
+| `DERIVED_FROM` | `Episodic` | `FHIRSource` | Exact FHIR provenance for the episode |
+
+`RELATES_TO` is the physical Neo4j relationship. Its clinical relationship
+name is restricted to:
+
+- `HAS_ENCOUNTER`
+- `HAS_CONDITION`
+- `HAS_MEDICATION_THERAPY`
+- `HAS_CLINICAL_RESULT`
+- `REPORTED_SYMPTOM`
+- `UNDERWENT_PROCEDURE`
+- `HAS_CARE_PLAN`
+- `HAS_ALLERGY`
+- `RECEIVED_IMMUNIZATION`
+- `OCCURRED_DURING_ENCOUNTER`
+
 `FHIRSource` stores only the resource identity, version, update time, and FHIR
 store identity needed for citations. It does not duplicate the FHIR resource.
 Semantic facts are returned only when their Graphiti episode resolves to a
@@ -105,31 +150,7 @@ NEO4J_DATABASE=neo4j
 MEDGRAPHITI_ENABLED=true
 ```
 
-For example, after creating a Secret Manager secret named
-`myhealth-neo4j-password`, update the existing service:
-
-```powershell
-gcloud run services update myhealth-agent-api `
-  --project avinia-app `
-  --region us-central1 `
-  --set-env-vars "NEO4J_URI=neo4j+s://<managed-host>,NEO4J_USERNAME=neo4j,NEO4J_DATABASE=neo4j,MEDGRAPHITI_ENABLED=true" `
-  --set-secrets "NEO4J_PASSWORD=myhealth-neo4j-password:latest"
-```
-
-The Cloud Run service account needs `roles/secretmanager.secretAccessor` for
-that secret. Graphiti constraints and indexes are created lazily during memory
-ingestion. Exact patient retrieval continues to work from FHIR if semantic
-memory is disabled or temporarily unavailable.
-
-The retrieval unit tests use synthetic FHIR resources:
-
-```powershell
-python -m unittest discover -s tests -v
-```
-
 ## Repository data
 
-The DDInter CSV files used by the prototype interaction lookup are documented
-in `data/ddinter/README.md`. Confirm their current redistribution terms before
-making a public release. SNOMED CT release files and patient exports must not be
-committed to this repository.
+DDInter CSV files, SNOMED CT release files, and patient exports are excluded
+from the repository and must not be committed.
